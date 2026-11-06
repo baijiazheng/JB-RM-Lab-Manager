@@ -2,7 +2,8 @@
 """任务 Pydantic 模型"""
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer, field_validator
+from app.core.timeutil import to_local_str, local_str_to_utc
 
 
 class TaskCreate(BaseModel):
@@ -11,6 +12,39 @@ class TaskCreate(BaseModel):
     requirement: str = ""
     deadline: Optional[datetime] = None
     assignee_id: int
+
+    @field_validator("deadline")
+    @classmethod
+    def _deadline_to_utc(cls, v):
+        return local_str_to_utc(v)
+
+
+class TaskUpdate(BaseModel):
+    """编辑任务（全部可选）"""
+    title: Optional[str] = None
+    description: Optional[str] = None
+    requirement: Optional[str] = None
+    deadline: Optional[datetime] = None
+    assignee_id: Optional[int] = None
+
+    @field_validator("deadline")
+    @classmethod
+    def _deadline_to_utc(cls, v):
+        return local_str_to_utc(v)
+
+
+class BatchTaskCreate(BaseModel):
+    """批量发布：同一任务发给多个队员"""
+    title: str = Field(..., min_length=1, max_length=128)
+    description: str = ""
+    requirement: str = ""
+    deadline: Optional[datetime] = None
+    assignee_ids: List[int] = Field(..., min_length=1)
+
+    @field_validator("deadline")
+    @classmethod
+    def _deadline_to_utc(cls, v):
+        return local_str_to_utc(v)
 
 
 class TaskStatusUpdate(BaseModel):
@@ -31,6 +65,10 @@ class FileOut(BaseModel):
     class Config:
         from_attributes = True
 
+    @field_serializer("uploaded_at")
+    def _ser_file_time(self, v):
+        return to_local_str(v)
+
 
 class SubmissionOut(BaseModel):
     id: int
@@ -43,6 +81,10 @@ class SubmissionOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+    @field_serializer("created_at")
+    def _ser_sub_time(self, v):
+        return to_local_str(v)
 
 
 class TaskOut(BaseModel):
@@ -64,3 +106,7 @@ class TaskOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+    @field_serializer("deadline", "created_at", "updated_at", "latest_submission_at")
+    def _ser_task_time(self, v):
+        return to_local_str(v)

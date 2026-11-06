@@ -7,7 +7,7 @@
   python -m app.init_db --reset  # 删库重建（★★ 会丢数据）
 """
 import sys
-from datetime import datetime
+from app.core.timeutil import utcnow
 
 from app.core.config import settings
 from app.core.database import Base, engine, SessionLocal
@@ -40,7 +40,7 @@ def main(reset: bool = False):
                 group_name="管理",
                 password_hash=hash_password(settings.DEFAULT_ADMIN_PASSWORD),
                 role=ROLE_ADMIN,
-                joined_at=datetime.utcnow(),
+                joined_at=utcnow(),
             )
             db.add(admin)
             db.commit()

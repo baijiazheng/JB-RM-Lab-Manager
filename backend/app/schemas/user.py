@@ -2,7 +2,8 @@
 """用户 Pydantic 模型（请求/响应校验）"""
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
+from app.core.timeutil import to_local_str
 
 
 class LoginRequest(BaseModel):
@@ -46,3 +47,7 @@ class UserOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+    @field_serializer("joined_at")
+    def _ser_time(self, v):
+        return to_local_str(v)

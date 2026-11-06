@@ -2,8 +2,14 @@
   <el-card shadow="never">
     <template #header>
       <div class="head">
-        <span>用户管理（{{ users.length }}）</span>
-        <el-button type="primary" size="small" @click="openCreate">新增队员</el-button>
+        <span>用户管理（{{ total }}）</span>
+        <div style="display:flex;gap:8px">
+          <el-input v-model="keyword" size="small" placeholder="工号/姓名"
+                    style="width:150px" clearable @keyup.enter="load" />
+          <el-button size="small" @click="load">搜索</el-button>
+          <el-button type="success" size="small" @click="csvDialog = true">批量导入 CSV</el-button>
+          <el-button type="primary" size="small" @click="openCreate">新增队员</el-button>
+        </div>
       </div>
     </template>
 
@@ -57,13 +63,35 @@
         <el-button type="primary" :loading="saving" @click="onSave">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- ★ CSV 批量导入 -->
+    <el-dialog v-model="csvDialog" title="批量导入 CSV" width="520px">
+      <el-alert type="info" :closable="false" style="margin-bottom:12px">
+        <div style="font-size:13px;line-height:1.8">
+          CSV 格式（第一行表头）：<br>
+          <code>工号,姓名,组别,密码,角色</code><br>
+          示例：<code>2024001,张三,视觉,123456,member</code><br>
+          · 角色可填 member / admin，默认 member<br>
+          · 密码留空默认 123456<br>
+          · 已存在的工号会跳过
+        </div>
+      </el-alert>
+      <el-upload :auto-upload="false" :show-file-list="true"
+                 accept=".csv" :on-change="onCsvChange" :limit="1">
+        <el-button>选择 CSV 文件</el-button>
+      </el-upload>
+      <template #footer>
+        <el-button @click="csvDialog = false">取消</el-button>
+        <el-button type="primary" :loading="importing" @click="onImport">开始导入</el-button>
+      </template>
+    </el-dialog>
   </el-card>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { listUsers, createUser, updateUser, resetPassword, deleteUser } from '../../api/users'
+import { listUsers, createUser, updateUser, resetPassword, deleteUser, importUsers } from '../../api/users'
 
 const users = ref([])
 const loading = ref(false)
@@ -72,6 +100,25 @@ const dialog = ref(false)
 const editing = ref(false)
 const editId = ref(null)
 const groups = ['视觉', '机械', '电控', '运营', '管理']
+const csvDialog = ref(false)
+const importing = ref(false)
+const csvFile = ref(null)
+
+function onCsvChange(file) { csvFile.value = file.raw }
+
+async function onImport() {
+  if (!csvFile.value) { ElMessage.warning('请先选文件'); return }
+  importing.value = true
+  try {
+    const res = await importUsers(csvFile.value)
+    ElMessage.success(`导入完成：新增 ${res.created}，跳过 ${res.skipped}` +
+                      (res.errors.length ? `，错误 ${res.errors.length}` : ''))
+    if (res.errors.length) console.warn('导入错误:', res.errors)
+    csvDialog.value = false
+    csvFile.value = null
+    load()
+  } finally { importing.value = false }
+}
 
 const form = reactive({
   emp_no: '', name: '', group_name: '视觉', password: '', role: 'member',
@@ -79,9 +126,16 @@ const form = reactive({
 
 function fmt(d) { return d ? d.replace('T', ' ').slice(0, 16) : '—' }
 
+const total = ref(0)
+const keyword = ref('')
+
 async function load() {
   loading.value = true
-  try { users.value = await listUsers() } finally { loading.value = false }
+  try {
+    const res = await listUsers({ page: 1, size: 500, q: keyword.value })
+    users.value = res.items
+    total.value = res.total
+  } finally { loading.value = false }
 }
 
 function openCreate() {

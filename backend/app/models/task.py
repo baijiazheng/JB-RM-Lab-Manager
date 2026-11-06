@@ -1,6 +1,6 @@
 # encoding: utf-8
 """任务 / 提交 / 附件模型"""
-from datetime import datetime
+from app.core.timeutil import utcnow
 from sqlalchemy import (
     Column, Integer, String, Text, DateTime, ForeignKey, Float
 )
@@ -27,8 +27,8 @@ class Task(Base):
     assignee_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     creator_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     reject_reason = Column(Text, default="")                  # 驳回理由
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     assignee = relationship("User", foreign_keys=[assignee_id])
     creator = relationship("User", foreign_keys=[creator_id])
@@ -43,7 +43,7 @@ class Submission(Base):
     task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     content = Column(Text, default="")                        # 文字提交内容
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     task = relationship("Task", back_populates="submissions")
     user = relationship("User")
@@ -60,6 +60,6 @@ class UploadFile(Base):
     original_name = Column(String(255), nullable=False)       # 原始文件名（给用户看）
     stored_name = Column(String(255), nullable=False)         # 磁盘上防重名的名字
     size_bytes = Column(Float, default=0)
-    uploaded_at = Column(DateTime, default=datetime.utcnow)
+    uploaded_at = Column(DateTime, default=utcnow)
 
     submission = relationship("Submission", back_populates="files")

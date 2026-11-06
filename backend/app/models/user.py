@@ -1,6 +1,6 @@
 # encoding: utf-8
 """用户模型"""
-from datetime import datetime
+from app.core.timeutil import utcnow
 from sqlalchemy import Column, Integer, String, DateTime
 from app.core.database import Base
 
@@ -17,4 +17,4 @@ class User(Base):
     group_name = Column(String(32), default="")                           # 组别：视觉/机械/电控...
     password_hash = Column(String(255), nullable=False)
     role = Column(String(16), default=ROLE_MEMBER, nullable=False)        # admin / member
-    joined_at = Column(DateTime, default=datetime.utcnow)                 # 加入时间
+    joined_at = Column(DateTime, default=utcnow)                 # 加入时间

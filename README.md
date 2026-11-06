@@ -186,22 +186,27 @@ alembic upgrade head
 |---|---|---|---|
 | POST | `/api/auth/login` | 公开 | 登录（返回 JWT）|
 | GET | `/api/auth/me` | 登录 | 当前用户信息 |
-| GET | `/api/users` | 管理员 | 用户列表 |
+| GET | `/api/users` | 管理员 | 用户列表（分页+搜索+筛选）|
+| GET | `/api/users/groups` | 管理员 | 所有组别 |
 | POST | `/api/users` | 管理员 | 新增用户 |
+| POST | `/api/users/import` | 管理员 | ★ CSV 批量导入 |
 | PUT | `/api/users/{id}` | 管理员 | 修改用户 |
 | POST | `/api/users/{id}/reset-password` | 管理员 | 重置密码 |
 | DELETE | `/api/users/{id}` | 管理员 | 删除用户 |
-| GET | `/api/tasks/mine` | 登录 | 我的任务 |
+| GET | `/api/tasks/mine` | 登录 | 我的任务（分页+搜索+筛选）|
 | GET | `/api/tasks/{id}` | 本人/管理员 | 任务详情 |
+| PUT | `/api/tasks/{id}/my-status` | 本人 | 标记进度（pending↔doing）|
 | POST | `/api/tasks/{id}/submit` | 本人 | 提交任务 |
 | GET | `/api/tasks/{id}/submissions` | 本人/管理员 | 提交记录 |
 | POST | `/api/tasks/submissions/{id}/files` | 本人 | 上传附件 |
 | GET | `/api/tasks/files/{id}/download` | 登录 | 下载附件 |
-| GET | `/api/tasks` | 管理员 | 全部任务 |
+| GET | `/api/tasks` | 管理员 | 全部任务（分页+搜索+筛选）|
 | POST | `/api/tasks` | 管理员 | 发布任务 |
+| POST | `/api/tasks/batch` | 管理员 | ★ 批量发布（一任务多人）|
+| PUT | `/api/tasks/{id}` | 管理员 | 编辑任务 |
 | PUT | `/api/tasks/{id}/status` | 管理员 | 审核/改状态 |
 | DELETE | `/api/tasks/{id}` | 管理员 | 删除任务 |
-| GET | `/api/tasks/admin/submissions` | 管理员 | 全部提交 |
+| GET | `/api/tasks/admin/submissions` | 管理员 | 全部提交（分页+搜索）|
 
 **统一返回格式：**
 ```json

@@ -2,7 +2,7 @@
   <el-card shadow="never">
     <template #header>
       <div class="head">
-        <span>全部提交记录（{{ list.length }}）</span>
+        <span>全部提交记录（{{ total }}）</span>
         <el-button size="small" @click="load">刷新</el-button>
       </div>
     </template>
@@ -39,13 +39,18 @@ import { ref, onMounted } from 'vue'
 import { allSubmissions, downloadUrl } from '../../api/tasks'
 
 const list = ref([])
+const total = ref(0)
 const loading = ref(false)
 
 function fmt(d) { return d ? d.replace('T', ' ').slice(0, 16) : '—' }
 
 async function load() {
   loading.value = true
-  try { list.value = await allSubmissions() } finally { loading.value = false }
+  try {
+    const res = await allSubmissions({ page: 1, size: 200 })
+    list.value = res.items
+    total.value = res.total
+  } finally { loading.value = false }
 }
 
 onMounted(load)

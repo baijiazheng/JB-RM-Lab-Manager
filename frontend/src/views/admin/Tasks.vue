@@ -2,8 +2,22 @@
   <el-card shadow="never">
     <template #header>
       <div class="head">
-        <span>任务管理（{{ tasks.length }}）</span>
-        <el-button type="primary" size="small" @click="openCreate">发布任务</el-button>
+        <span>任务管理（{{ total }}）</span>
+        <div style="display:flex;gap:8px">
+          <el-input v-model="keyword" size="small" placeholder="搜索标题"
+                    style="width:150px" clearable @keyup.enter="load" />
+          <el-select v-model="statusFilter" size="small" placeholder="全部状态"
+                     style="width:110px" clearable @change="load">
+            <el-option label="未开始" value="pending" />
+            <el-option label="进行中" value="doing" />
+            <el-option label="已提交" value="submitted" />
+            <el-option label="已驳回" value="rejected" />
+            <el-option label="已完成" value="done" />
+          </el-select>
+          <el-button size="small" @click="load">搜索</el-button>
+          <el-button type="warning" size="small" @click="openBatch">批量发布</el-button>
+          <el-button type="primary" size="small" @click="openCreate">发布任务</el-button>
+        </div>
       </div>
     </template>
 
@@ -29,6 +43,7 @@
       <el-table-column label="操作" min-width="240">
         <template #default="{ row }">
           <el-button size="small" link type="primary" @click="$router.push(`/task/${row.id}`)">查看</el-button>
+          <el-button size="small" link @click="openEdit(row)">编辑</el-button>
           <el-button v-if="row.status === 'submitted'" size="small" link type="success"
                      @click="onApprove(row)">通过</el-button>
           <el-button v-if="row.status === 'submitted'" size="small" link type="danger"
@@ -40,7 +55,7 @@
     </el-table>
 
     <!-- 发布任务弹窗 -->
-    <el-dialog v-model="dialog" title="发布任务" width="560px">
+    <el-dialog v-model="dialog" :title="editing ? '编辑任务' : '发布任务'" width="560px">
       <el-form :model="form" label-width="80px">
         <el-form-item label="标题"><el-input v-model="form.title" /></el-form-item>
         <el-form-item label="接收人">
@@ -61,7 +76,45 @@
       </el-form>
       <template #footer>
         <el-button @click="dialog = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="onSave">发布</el-button>
+        <el-button type="primary" :loading="saving" @click="onSave">
+          {{ editing ? '保存' : '发布' }}
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- ★ 批量发布 -->
+    <el-dialog v-model="batchDialog" title="批量发布（同一任务发给多个队员）" width="560px">
+      <el-form :model="batchForm" label-width="80px">
+        <el-form-item label="标题"><el-input v-model="batchForm.title" /></el-form-item>
+        <el-form-item label="接收人">
+          <el-select v-model="batchForm.assignee_ids" multiple filterable
+                     style="width:100%" placeholder="可选多个">
+            <el-option v-for="u in users" :key="u.id"
+                       :label="`${u.name}（${u.group_name || '未分组'}）`" :value="u.id" />
+          </el-select>
+          <div style="margin-top:4px">
+            <el-button size="small" link @click="selectAll">全选</el-button>
+            <el-button size="small" link @click="selectGroup('视觉')">视觉组</el-button>
+            <el-button size="small" link @click="selectGroup('机械')">机械组</el-button>
+            <el-button size="small" link @click="selectGroup('电控')">电控组</el-button>
+          </div>
+        </el-form-item>
+        <el-form-item label="截止时间">
+          <el-date-picker v-model="batchForm.deadline" type="datetime"
+                          value-format="YYYY-MM-DDTHH:mm:ss" style="width:100%" />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input v-model="batchForm.description" type="textarea" :rows="3" />
+        </el-form-item>
+        <el-form-item label="要求">
+          <el-input v-model="batchForm.requirement" type="textarea" :rows="3" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="batchDialog = false">取消</el-button>
+        <el-button type="primary" :loading="saving" @click="onBatchSave">
+          发给 {{ batchForm.assignee_ids.length }} 人
+        </el-button>
       </template>
     </el-dialog>
   </el-card>
@@ -70,16 +123,25 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { allTasks, createTask, updateTaskStatus, deleteTask } from '../../api/tasks'
+import { allTasks, createTask, createTasksBatch, updateTask, updateTaskStatus, deleteTask } from '../../api/tasks'
 import { listUsers } from '../../api/users'
 
 const tasks = ref([])
 const users = ref([])
+const total = ref(0)
+const keyword = ref('')
+const statusFilter = ref('')
+const editing = ref(false)
+const editId = ref(null)
+const batchDialog = ref(false)
 const loading = ref(false)
 const saving = ref(false)
 const dialog = ref(false)
 const form = reactive({
   title: '', assignee_id: null, deadline: null, description: '', requirement: '',
+})
+const batchForm = reactive({
+  title: '', assignee_ids: [], deadline: null, description: '', requirement: '',
 })
 
 function statusType(s) {
@@ -95,12 +157,52 @@ function fmt(d) { return d ? d.replace('T', ' ').slice(0, 16) : '—' }
 async function load() {
   loading.value = true
   try {
-    tasks.value = await allTasks()
-    users.value = await listUsers()
+    const t = await allTasks({ page: 1, size: 200, q: keyword.value,
+                               status: statusFilter.value })
+    tasks.value = t.items
+    total.value = t.total
+    const u = await listUsers({ size: 500 })
+    users.value = u.items
   } finally { loading.value = false }
 }
 
+function openEdit(row) {
+  editing.value = true
+  editId.value = row.id
+  Object.assign(form, {
+    title: row.title, assignee_id: row.assignee_id,
+    deadline: row.deadline, description: row.description,
+    requirement: row.requirement,
+  })
+  dialog.value = true
+}
+
+function openBatch() {
+  Object.assign(batchForm, { title: '', assignee_ids: [], deadline: null,
+                             description: '', requirement: '' })
+  batchDialog.value = true
+}
+function selectAll() { batchForm.assignee_ids = users.value.map(u => u.id) }
+function selectGroup(g) {
+  batchForm.assignee_ids = users.value.filter(u => u.group_name === g).map(u => u.id)
+}
+
+async function onBatchSave() {
+  if (!batchForm.title || !batchForm.assignee_ids.length) {
+    ElMessage.warning('标题和接收人必填'); return
+  }
+  saving.value = true
+  try {
+    const res = await createTasksBatch({ ...batchForm })
+    ElMessage.success(res ? `已发给 ${res.created} 人` : '已发布')
+    batchDialog.value = false
+    load()
+  } finally { saving.value = false }
+}
+
 function openCreate() {
+  editing.value = false
+  editId.value = null
   Object.assign(form, { title: '', assignee_id: null, deadline: null,
                         description: '', requirement: '' })
   dialog.value = true
@@ -112,9 +214,15 @@ async function onSave() {
   }
   saving.value = true
   try {
-    await createTask({ ...form })
-    ElMessage.success('已发布')
+    if (editing.value) {
+      await updateTask(editId.value, { ...form })
+      ElMessage.success('已保存')
+    } else {
+      await createTask({ ...form })
+      ElMessage.success('已发布')
+    }
     dialog.value = false
+    editing.value = false
     load()
   } finally { saving.value = false }
 }

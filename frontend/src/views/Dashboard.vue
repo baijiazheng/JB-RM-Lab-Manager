@@ -12,8 +12,20 @@
     <el-card shadow="never">
       <template #header>
         <div class="card-head">
-          <span>我的任务</span>
-          <el-button size="small" @click="load">刷新</el-button>
+          <span>我的任务（{{ tasks.length }}）</span>
+          <div style="display:flex;gap:8px">
+            <el-input v-model="keyword" size="small" placeholder="搜索标题"
+                      style="width:160px" clearable @keyup.enter="load" />
+            <el-select v-model="statusFilter" size="small" placeholder="全部状态"
+                       style="width:120px" clearable @change="load">
+              <el-option label="未开始" value="pending" />
+              <el-option label="进行中" value="doing" />
+              <el-option label="已提交" value="submitted" />
+              <el-option label="已驳回" value="rejected" />
+              <el-option label="已完成" value="done" />
+            </el-select>
+            <el-button size="small" @click="load">刷新</el-button>
+          </div>
         </div>
       </template>
 
@@ -34,6 +46,11 @@
           <template #default="{ row }">
             <el-button size="small" type="primary" link
                        @click="$router.push(`/task/${row.id}`)">查看</el-button>
+            <el-button v-if="['pending','doing'].includes(row.status)"
+                       size="small" link
+                       @click="toggleStatus(row)">
+              {{ row.status === 'pending' ? '开始' : '暂停' }}
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -43,7 +60,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { myTasks } from '../api/tasks'
+import { myTasks, updateMyStatus } from '../api/tasks'
 import { useUserStore } from '../stores/user'
 
 const store = useUserStore()
@@ -70,9 +87,22 @@ function statusText(s) {
 }
 function fmt(d) { return d ? d.replace('T', ' ').slice(0, 16) : '—' }
 
+const keyword = ref('')
+const statusFilter = ref('')
+
 async function load() {
   loading.value = true
-  try { tasks.value = await myTasks() } finally { loading.value = false }
+  try {
+    const res = await myTasks({ page: 1, size: 200, q: keyword.value,
+                                status: statusFilter.value })
+    tasks.value = res.items
+  } finally { loading.value = false }
+}
+
+async function toggleStatus(row) {
+  const next = row.status === 'pending' ? 'doing' : 'pending'
+  await updateMyStatus(row.id, next)
+  load()
 }
 
 onMounted(async () => {
