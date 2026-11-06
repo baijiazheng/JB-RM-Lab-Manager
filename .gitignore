@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.db
+.venv/
+venv/
+.env
+
+# Node
+node_modules/
+dist/
+.DS_Store
+
+# 上传文件
+backend/static/uploads/*
+!backend/static/uploads/.gitkeep
+
+# 日志
+*.log

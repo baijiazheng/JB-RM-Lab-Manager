@@ -1,0 +1,23 @@
+════════════════════════════════════════════════════════
+ RM 战队实验室管理后台 · 一键启动
+════════════════════════════════════════════════════════
+
+【终端 1 · 后端】
+  cd ~/JB-RM-Lab-Manager/backend
+  source .venv/bin/activate
+  uvicorn app.main:app --reload --port 8000
+
+【终端 2 · 前端】
+  cd ~/JB-RM-Lab-Manager/frontend
+  npm run dev
+
+【浏览器】
+  http://127.0.0.1:5173
+
+【账号】
+  工号：admin
+  密码：123456
+  ⚠️ 上线务必改密码
+
+【接口文档】
+  http://127.0.0.1:8000/docs
